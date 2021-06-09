@@ -17,7 +17,8 @@ const char* myWriteAPIKey = "08E4IMSBJX21ZBPP";
 
 char email_cond = 'y';
 
-
+String message, LDR, MQ2, MQ3, MQ4, MQ135, temperature, humidity;
+int count_spoiled=0,count_air_quality=0;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);        // enables the serial monitor 
@@ -39,21 +40,21 @@ void setup() {
 }
 
 void loop() {
-  String message = mySerial.readStringUntil('\n');
-  String LDR = getValue(message,' ',0);
-  String MQ2 = getValue(message,' ',1);
-  String MQ3 = getValue(message,' ',2);
-  String MQ4 = getValue(message,' ',3);
-  String MQ135 = getValue(message,' ',4);
-  String temperature = getValue(message,' ',5);
-  String humidity = getValue(message,' ',6);
-  Serial.println(message);
+   message = mySerial.readStringUntil('\n');
+   LDR = getValue(message,' ',0);
+   MQ2 = getValue(message,' ',1);
+   MQ3 = getValue(message,' ',2);
+   MQ4 = getValue(message,' ',3);
+   MQ135 = getValue(message,' ',4);
+   temperature = getValue(message,' ',5);
+   humidity = getValue(message,' ',6);
+   Serial.println(message);
 
   thingspeak(temperature, humidity, MQ2, MQ3, MQ4, MQ135, LDR); // sends the sensor data to the thingspeak.com
 
   sending_email(); // sends an email via an applet created in ifttt.com 
   
-  delay(30000);
+  delay(40000);
 
 }
 
@@ -104,16 +105,29 @@ void sending_email() {
       Serial.println("email connection failed");
       return;
     }
-  if(email_cond == 'y') {
-    String url = "/trigger/food_spoiled/with/key/oOAEkILKPPinkD1S3IJ5I7FCYNdDNmWFzlgsNFoqBD";
+    
+  if(count_spoiled!=3 && MQ2.toInt() >= 470 && MQ3.toInt() >= 350 && MQ4.toInt() >= 280) {
+    String url1 = "/trigger/food_spoiled/with/key/oOAEkILKPPinkD1S3IJ5I7FCYNdDNmWFzlgsNFoqBD";
+    Serial.print("Requesting url: ");
+    Serial.println(url1);
+    client.print(String("GET ") + url1 + " HTTP/1.1\r\n" + 
+                                    "Host: " + host + "\r\n" +   
+                                    "Connection: close\r\n\r\n");    
+                                      
+    count_spoiled += 1;
+    } else {
+      Serial.println("email not sent because food is not spoiled yet.\n"); 
+    }   
+  delay(5000);   
+  if(count_air_quality!=3 && LDR.toInt() > 300 && MQ135.toInt() > 240) {
+    String url = "/trigger/air_quality_and_light_around_the_food_is_not_good-Move_your_food_to_a_darker_place/with/key/oOAEkILKPPinkD1S3IJ5I7FCYNdDNmWFzlgsNFoqBD";
     Serial.print("Requesting url: ");
     Serial.println(url);
     client.print(String("GET ") + url + " HTTP/1.1\r\n" + 
                                     "Host: " + host + "\r\n" +   
-                                    "Connection: close\r\n\r\n");    
-                                      
-    email_cond = 'n';
-    } else {
-      Serial.println("email not sent because food is not spoiled yet."); 
-    }    
+                                    "Connection: close\r\n\r\n"); 
+  count_air_quality += 3;
+  } else {
+    Serial.println("email not sent because air quality is good.");
+  }
 }
